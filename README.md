@@ -6,12 +6,6 @@ Este projeto foi desenvolvido como requisito para a disciplina de **Compiladores
 
 ---
 
-## 🎯 Diretriz do Projeto
-> **Originalidade + Utilidade > Complexidade**
-> O foco do projeto é o mapeamento estrito do domínio de um jogo de cartas, aplicando conceitos fundamentais de compiladores (Análise Sintática, Árvore de Sintaxe Abstrata e Análise Semântica) em um escopo controlado e de alta utilidade prática.
-
----
-
 ## 📋 Escopo do MVP & Regras do Jogo
 
 Para garantir a estabilidade do compilador e a entrega dentro do prazo, o escopo foi delimitado sob as seguintes regras:
