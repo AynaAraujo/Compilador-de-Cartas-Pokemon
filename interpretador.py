@@ -1,117 +1,208 @@
-from lark import *
+# interpretador.py
+import re
+from lark import Tree
 from game import JogoEstado
 
-
-# ==========================================
-# 3. INTERPRETADOR RECURSIVO (MATCH/CASE)
-# ==========================================
 def avalie(tree, estado: JogoEstado):
-    # Se chegarmos em um nó terminal que não é uma Tree do Lark, interrompemos
     if not isinstance(tree, Tree):
         return tree
 
     match tree.data:
         case "start":
-            # Avalia a definição dos decks e depois a sequência de rounds
             avalie(tree.children[0], estado)
-            avalie(tree.children[1], estado)
 
         case "definicao_decks":
-            # Avalia o nó do deck 1 e deck 2 para preencher as listas de strings
             nomes_p1 = avalie(tree.children[0], estado)
             nomes_p2 = avalie(tree.children[1], estado)
             
-            estado.p1_mao = estado.carregar_deck(nomes_p1)
-            estado.p2_mao = estado.carregar_deck(nomes_p2)
+            estado.p1_banco = estado.carregar_deck(nomes_p1)
+            estado.p2_banco = estado.carregar_deck(nomes_p2)
 
-            estado.p1_ativo = estado.p1_mao.pop(0)
-            estado.p2_ativo = estado.p2_mao.pop(0)
-            print("\n=== ROUND 0: Decks Carregados e Validados (Match Tree Ativo) ===")
+            executar_round_zero(estado)
+            loop_principal_batalha(estado)
 
         case "deck_player1" | "deck_player2":
-            # Delega para o filho 'string_lista' retornar a lista de strings limpa
             return avalie(tree.children[0], estado)
 
         case "string_lista":
-            # Limpa as aspas de cada Token de string na lista
-            return [str(filho).replace('"', '') for filho in tree.children]
+            nomes_limpos = []
+            for child in tree.children:
+                itens = child.children if isinstance(child, Tree) else [child]
+                for item in itens:
+                    texto = str(item)
+                    texto = texto.strip().strip('"').strip("'").strip('“').strip('”')
+                    if texto:
+                        nomes_limpos.append(texto)
+            return nomes_limpos
 
-        case "sequencia_rounds":
-            for node_round in tree.children:
-                avalie(node_round, estado)
 
-        case "round":
-            num_round = str(tree.children[0])
-            print(f"\n================================== ROUND {num_round} ==================================")
-            # Executa o turno P1, depois o turno P2 sequencialmente
-            avalie(tree.children[1], estado)
-            avalie(tree.children[2], estado)
+# =========================================================================
+# FUNCTIONS EXECUTADAS PELO INTERPRETADOR INTERATIVO (REPL)
+# =========================================================================
 
-        case "turno_p1":
+def executar_round_zero(estado: JogoEstado):
+    print("\n================================== ROUND 0 ==================================")
+    print("Mãos/Bancos carregados com sucesso do arquivo JSON!")
+    print(f"Banco do Jogador 1: {', '.join([p['name'] for p in estado.p1_banco])}")
+    print(f"Banco do Jogador 2: {', '.join([p['name'] for p in estado.p2_banco])}")
+    
+    estado.p1_ativo = estado.p1_banco.pop(0)
+    estado.p2_ativo = estado.p2_banco.pop(0)
+    print("\nPokémons iniciais enviados para o campo!")
+
+
+def loop_principal_batalha(estado: JogoEstado):
+    num_round = 1
+    
+    while estado.p1_pontos < 3 and estado.p2_pontos < 3:
+        print(f"\n================================== ROUND {num_round} ==================================")
+        
+        # Turno do Jogador 1
+        if estado.p1_ativo is not None:
             estado.mostrar_painel("Jogador1")
-            # O filho imediato de turno_p1 é o nó da ação (atacar, recuar, energizar, passar)
-            acao_node = tree.children[0]
-            executar_acao_motor(estado.p1_ativo, estado.p2_ativo, "Jogador1", acao_node, estado)
+            gerenciar_input_turno("Jogador1", estado.p1_ativo, estado.p2_ativo, estado.p1_banco, estado)
+        else:
+            print("\n❌ Jogador 1 está sem Pokémon ativo em campo!")
+            if not escolher_novo_ativo_obrigatorio("Jogador1", estado.p1_banco, estado):
+                print("🏆 JOGADOR 2 GANHOU! Jogador 1 não tem mais Pokémons no banco.")
+                break
 
-        case "turno_p2":
+        if estado.p1_pontos >= 3: break
+
+        # Turno do Jogador 2
+        if estado.p2_ativo is not None:
             estado.mostrar_painel("Jogador2")
-            acao_node = tree.children[0]
-            executar_acao_motor(estado.p2_ativo, estado.p1_ativo, "Jogador2", acao_node, estado)
+            gerenciar_input_turno("Jogador2", estado.p2_ativo, estado.p1_ativo, estado.p2_banco, estado)
+        else:
+            print("\n❌ Jogador 2 está sem Pokémon ativo em campo!")
+            if not escolher_novo_ativo_obrigatorio("Jogador2", estado.p2_banco, estado):
+                print("🏆 JOGADOR 1 GANHOU! Jogador 2 não tem mais Pokémons no banco.")
+                break
+                
+        num_round += 1
+
+    print("\n FIM DE JOGO!")
+    if estado.p1_pontos >= 3:
+        print("🏆 PARABÉNS! JOGADOR 1 É O VENCEDOR DA PARTIDA!")
+    elif estado.p2_pontos >= 3:
+        print("🏆 PARABÉNS! JOGADOR 2 É O VENCEDOR DA PARTIDA!")
 
 
-# ==========================================
-# 4. MOTOR DE EXECUÇÃO DE AÇÕES
-# ==========================================
-def executar_acao_motor(meu_pkmn, oponente_pkmn, jogador, acao_node, estado: JogoEstado):
-    match acao_node.data:
-        case "passar":
-            print(f"-> {jogador} decidiu passar o turno.")
-
-        case "energizar":
-            tipo_energia = str(acao_node.children[0]).replace('"', '')
-            meu_pkmn["energias"][tipo_energia] = meu_pkmn["energias"].get(tipo_energia, 0) + 1
-            print(f"⚡ {jogador} colocou 1 energia de tipo '{tipo_energia}' em {meu_pkmn['name']}.")
-            print(f"Status Atualizado -> {estado.formatar_pokemon(meu_pkmn)}")
-
-        case "recuar":
-            target = str(acao_node.children[0]).replace('"', '')
-            mao_atual = estado.p1_mao if jogador == "Jogador1" else estado.p2_mao
+def gerenciar_input_turno(nome_jogador, meu_pkmn, oponente_pkmn, meu_banco, estado: JogoEstado):
+    print(f"\n🤔 {nome_jogador}, qual ação você deseja realizar?")
+    print("1 - ATACAR")
+    print("2 - RECUAR")
+    print("3 - ENERGIZAR (+1 Marcador de Energia)")
+    print("4 - PASSAR")
+    
+    escolha = input("Digite o número da ação: ").strip()
+    
+    match escolha:
+        case "4":
+            print(f"-> {nome_jogador} decidiu passar o turno.")
             
-            p_novo = next((p for p in mao_atual if p['name'] == target), None)
+        case "3":
+            # Agora incrementa diretamente uma energia genérica/marcador numérico simples
+            meu_pkmn["energias_total"] += 1
+            print(f"⚡ {nome_jogador} colocou 1 energia em {meu_pkmn['name']}.")
+            print(f"Status Atualizado -> {estado.formatar_pokemon(meu_pkmn)}")
+            
+        case "2":
+            if not meu_banco:
+                print("❌ Você não tem Pokémons disponíveis no banco para recuar! Turno perdido.")
+                return
+            print(f"Pokémons disponíveis no seu banco: {', '.join([p['name'] for p in meu_banco])}")
+            target = input("Digite o nome do Pokémon que sairá do banco: ").strip()
+            
+            p_novo = next((p for p in meu_banco if p['name'].lower() == target.lower()), None)
             if not p_novo:
-                raise ValueError(f"❌ Erro Semântico: {target} não está na mão do {jogador} para poder entrar em campo!")
-
-            mao_atual.remove(p_novo)
-            if jogador == "Jogador1":
-                mao_atual.append(estado.p1_ativo)
+                print("❌ Pokémon inválido ou não encontrado no banco! Turno perdido.")
+                return
+                
+            meu_banco.remove(p_novo)
+            meu_banco.append(meu_pkmn) # O atual volta mantendo as energias salvas nele
+            if nome_jogador == "Jogador1":
                 estado.p1_ativo = p_novo
             else:
-                mao_atual.append(estado.p2_ativo)
                 estado.p2_ativo = p_novo
-            print(f"🔄 Recuo efetuado! {target} agora é o Pokémon ativo de {jogador}.")
+            print(f"🔄 Recuo efetuado com sucesso! {p_novo['name']} entrou em campo.")
+            
+        case "1":
+            print(f"\nSeleção de Ataque para {meu_pkmn['name']}:")
+            for i, a in enumerate(meu_pkmn['attacks']):
+                print(f"{i+1} - {a['name']} (Dano Base: {a['damage']} | Requisito: {a.get('cost', 0)} energia(s))")
+                
+            try:
+                idx_input = int(input("Digite o número do ataque desejado: ")) - 1
+                if idx_input < 0 or idx_input >= len(meu_pkmn['attacks']):
+                    print("❌ Opção de ataque inexistente! Turno perdido.")
+                    return
+            except ValueError:
+                print("❌ Entrada inválida! Turno perdido.")
+                return
+                
+            ataque = meu_pkmn['attacks'][idx_input]
+            
+            # --- VALIDAÇÃO SEMÂNTICA: CHECAGEM DO CUSTO SIMPLIFICADO ---
+            custo_requerido = int(ataque.get("cost", 0))
 
-        case "atacar":
-            idx = int(acao_node.children[0]) - 1
-            ataque = meu_pkmn['attacks'][idx]
-            dano_base = int(ataque['damage']) if ataque['damage'] else 0
+            if meu_pkmn["energias_total"] < custo_requerido:
+                print(f"❌ Erro Semântico: {meu_pkmn['name']} tentou usar '{ataque['name']}' (Requer: {custo_requerido}), mas possui apenas {meu_pkmn['energias_total']} marcador(es)!")
+                print("Turno perdido devido à falha de recursos.")
+                return
+            # -----------------------------------------------------------
             
-            # Modificadores de Dano (Fraqueza e Resistência)
-            multiplicador = 2 if oponente_pkmn['weaknesses'] and oponente_pkmn['weaknesses'][0]['type'] == meu_pkmn['types'][0] else 1
-            reducao = int(oponente_pkmn['resistances'][0]['value'].replace('-', '')) if oponente_pkmn['resistances'] and oponente_pkmn['resistances'][0]['type'] == meu_pkmn['types'][0] else 0
-            
+            dano_limpo = re.sub(r'\D', '', ataque['damage'])
+            dano_base = int(dano_limpo) if dano_limpo else 0
+
+            if not oponente_pkmn:
+                print(f"💥 {meu_pkmn['name']} atacou o vento! Não há oponente em campo.")
+                return
+
+            multiplicador = 1
+            if oponente_pkmn['weaknesses'] and oponente_pkmn['weaknesses'][0]['type'] == meu_pkmn['types']:
+                val_weak = oponente_pkmn['weaknesses'][0]['value']
+                if "x2" in val_weak or "×2" in val_weak: multiplicador = 2
+                elif "+20" in val_weak: dano_base += 20
+
+            reducao = 0
+            if oponente_pkmn['resistances'] and oponente_pkmn['resistances'][0]['type'] == meu_pkmn['types']:
+                reducao = abs(int(oponente_pkmn['resistances'][0]['value']))
+
             dano_final = max(0, (dano_base * multiplicador) - reducao)
             oponente_pkmn['hp_atual'] = max(0, oponente_pkmn['hp_atual'] - dano_final)
             
-            print(f"💥 {meu_pkmn['name']} usou {ataque['name']} causando {dano_final} de dano!")
-            print(f"Status Oponente -> {estado.formatar_pokemon(oponente_pkmn)}")
+            print(f"\n💥 {meu_pkmn['name']} usou {ataque['name']}!")
+            print(f"👉 Causou {dano_final} de dano real em {oponente_pkmn['name']}.")
 
-            # Verificação de Nocaute
             if oponente_pkmn['hp_atual'] <= 0:
-                print(f"💀 {oponente_pkmn['name']} foi nocauteado!")
-                if jogador == "Jogador1":
+                print(f"💀 {oponente_pkmn['name']} foi nocauteado de campo!")
+                if nome_jogador == "Jogador1":
                     estado.p1_pontos += 1
-                    if estado.p2_mao: estado.p2_ativo = estado.p2_mao.pop(0)
+                    estado.p2_ativo = None
                 else:
                     estado.p2_pontos += 1
-                    if estado.p1_mao: estado.p1_ativo = estado.p1_mao.pop(0)
+                    estado.p1_ativo = None
+        case _:
+            print("❌ Comando inválido selecionado! Turno perdido.")
 
+
+def escolher_novo_ativo_obrigatorio(nome_jogador, meu_banco, estado: JogoEstado):
+    if not meu_banco:
+        return False
+    print(f"\n🚨 {nome_jogador}, seu Pokémon anterior caiu! Escolha um substituto do banco imediatamente:")
+    print(f"Opções disponíveis: {', '.join([p['name'] for p in meu_banco])}")
+    
+    escolha = input("Digite o nome exato do Pokémon: ").strip()
+    p_novo = next((p for p in meu_banco if p['name'].lower() == escolha.lower()), None)
+    if not p_novo:
+        p_novo = meu_banco.pop(0)
+        print(f"⚠️ Entrada inválida. Sistema promoveu automaticamente: {p_novo['name']}")
+    else:
+        meu_banco.remove(p_novo)
+        
+    if nome_jogador == "Jogador1":
+        estado.p1_ativo = p_novo
+    else:
+        estado.p2_ativo = p_novo
+    return True

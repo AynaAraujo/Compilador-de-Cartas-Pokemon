@@ -15,7 +15,8 @@ def rodar_simulador(caminho_script_pok):
         return
     
     # Filtra e indexa o banco de dados pelo nome do Pokémon para busca rápida O(1)
-    db_cartas = {c["name"]: c for c in dados_json if c.get("supertype") == "Pokémon"}
+    # Filtra e indexa o banco de dados removendo espaços extras ocultos nas chaves
+    db_cartas = {c["name"].strip(): c for c in dados_json}
 
     # 2. Lê o arquivo de script da DSL contendo a batalha
     try:

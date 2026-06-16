@@ -1,0 +1,4 @@
+# batalha.pok
+DECK Jogador1 [ "Pikachu", "Charmander", "Chansey" ]
+DECK Jogador2 [ "Squirtle", "Diglett", "Mewtwo" ]
+INICIAR BATALHA
