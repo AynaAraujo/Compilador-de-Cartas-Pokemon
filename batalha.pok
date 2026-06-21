@@ -1,4 +1,4 @@
 # --- Inicialização da Mesa com Decks de 5 Cartas ---
-DECK Jogador1 [ "Pikachu", "Charmander", "Chansey", "Growlithe", "Ponyta" ]
-DECK Jogador2 [ "Squirtle", "Diglett", "Mewtwo", "Bulbasaur", "Caterpie" ]
+DECK Bob [ "Squirtle", "Diglett", "Mewtwo", "Bulbasaur", "Caterpie" ]
+DECK Alice [ "Pikachu", "Charmander", "Chansey", "Growlithe", "Ponyta" ]
 INICIAR BATALHA

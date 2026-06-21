@@ -4,11 +4,11 @@ from lark import Lark
 analisador_pokemon = Lark(r"""
     ?start: definicao_decks
     
-    definicao_decks: deck_player1 deck_player2 "INICIAR" "BATALHA"
-    deck_player1: "DECK" "Jogador1" "[" string_lista "]"
-    deck_player2: "DECK" "Jogador2" "[" string_lista "]"
+    definicao_decks: deck_def+ "INICIAR" "BATALHA"
+    deck_def: "DECK" PLAYER "[" string_lista "]"
     string_lista: STRING ("," STRING)*
 
+    PLAYER: /[A-Za-z][A-Za-z0-9_]*/
     STRING: ESCAPED_STRING
     
     %import common.ESCAPED_STRING

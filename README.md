@@ -51,11 +51,20 @@ Este projeto adota uma arquitetura clássica de **Avaliação Dirigida por Sinta
 
 ```text
 # --- Inicialização da Mesa com Decks de 5 Cartas ---
-DECK Jogador1 [ "Pikachu", "Charmander", "Chansey", "Growlithe", "Ponyta" ]
-DECK Jogador2 [ "Squirtle", "Diglett", "Mewtwo", "Bulbasaur", "Caterpie" ]
+DECK Alice [ "Pikachu", "Charmander", "Chansey", "Growlithe", "Ponyta" ]
+DECK Bob [ "Squirtle", "Diglett", "Mewtwo", "Bulbasaur", "Caterpie" ]
 INICIAR BATALHA
-
 ```
+
+A DSL funciona para inicializar dois decks de jogadores e iniciar uma batalha interativa.
+Cada deck deve conter exatamente 5 cartas e pode ser declarado em qualquer ordem.
+O nome do jogador é livre, contanto que os dois sejam diferentes.
+
+A validação cobre:
+
+* tamanho de deck incorreto
+* cartas repetidas no mesmo deck
+* cartas não existentes no banco de dados
 
 ---
 
@@ -64,11 +73,10 @@ INICIAR BATALHA
 ### Pré-requisitos
 
 * Python 3.10 ou superior
-* Biblioteca Lark
+* Biblioteca `lark-parser`
 
 ```bash
-pip install lark
-
+pip install lark-parser
 ```
 
 ### Execução
@@ -77,7 +85,4 @@ Passe o arquivo com a especificação da batalha como argumento por linha de com
 
 ```bash
 python main.py batalha.pok
-
-```
-
 ```

@@ -2,7 +2,7 @@
 import json
 import sys
 from analisador import analisador_pokemon
-from game import JogoEstado
+from game import DeckError, JogoEstado
 from interpretador import avalie
 
 def rodar_simulador(caminho_script_pok):
@@ -40,7 +40,7 @@ def rodar_simulador(caminho_script_pok):
         
         print("\n🏆 Simulação concluída com sucesso!")
 
-    except (TypeError, NameError, ValueError) as erro_semantico:
+    except (TypeError, ValueError, DeckError) as erro_semantico:
         # Captura as exceções de regras de negócio tratadas pelo interpretador
         print(f"\n{erro_semantico}")
         print("🚫 Execução abortada pelo Analisador Semântico.")
