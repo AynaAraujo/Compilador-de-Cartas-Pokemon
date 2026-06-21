@@ -66,6 +66,14 @@ A validação cobre:
 * cartas repetidas no mesmo deck
 * cartas não existentes no banco de dados
 
+Arquivos de exemplo para validação:
+
+* `batalha_tamanho_invalido.pok`
+* `batalha_repetida.pok`
+* `batalha_carta_invalida.pok`
+
+Use qualquer um desses arquivos no lugar de `batalha.pok` para testar os erros de validação diretamente.
+
 ---
 
 ## 📦 Como Rodar a Aplicação

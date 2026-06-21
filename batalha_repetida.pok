@@ -1,0 +1,4 @@
+# Deck 2 com cartas repetidas
+DECK Alice [ "Pikachu", "Charmander", "Chansey", "Growlithe", "Ponyta" ]
+DECK Bob [ "Squirtle", "Diglett", "Mewtwo", "Diglett", "Caterpie" ]
+INICIAR BATALHA

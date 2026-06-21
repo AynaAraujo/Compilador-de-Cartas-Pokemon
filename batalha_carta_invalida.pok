@@ -1,0 +1,4 @@
+# Carta inválida no deck
+DECK Alice [ "Pikachu", "Charmander", "Chansey", "Growlithe", "Ponyta" ]
+DECK Bob [ "Squirtle", "Diglett", "Mewtwo", "Bulbasaur", "CartaInvalida" ]
+INICIAR BATALHA

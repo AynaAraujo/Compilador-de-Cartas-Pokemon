@@ -1,0 +1,4 @@
+# Deck 1 com tamanho incorreto (4 cartas)
+DECK Alice [ "Pikachu", "Charmander", "Chansey", "Growlithe" ]
+DECK Bob [ "Squirtle", "Diglett", "Mewtwo", "Bulbasaur", "Caterpie" ]
+INICIAR BATALHA
