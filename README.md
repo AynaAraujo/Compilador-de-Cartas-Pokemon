@@ -7,7 +7,9 @@
 ## Equipe
 
 Ayna Mariah
+
 Giulia Buonafina
+
 Maria Luana Rodrigues
 
 ---
