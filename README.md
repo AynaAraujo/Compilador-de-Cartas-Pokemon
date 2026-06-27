@@ -1,96 +1,243 @@
-# ⚔️ Pokémon TCG DSL & REPL Battle Simulator
+# PokéLang — DSL para Batalhas de Cartas Pokémon
 
-Uma Linguagem de Domínio Específico (DSL) desenvolvida em **Python** utilizando a biblioteca **Lark** para inicialização de estado de ambiente e um motor interpretador interativo de turnos via CLI (Terminal).
-
-Este projeto foi desenvolvido como requisito para a disciplina de **Compiladores UPE**.
+> Projeto da disciplina de **Compiladores — UPE**
 
 ---
 
-## 📂 Estrutura de Arquivos do Projeto
+## Equipe
 
-```text
+Ayna Mariah
+Giulia Buonafina
+Maria Luana Rodrigues
+
+---
+
+## Motivação e Descrição Informal da Linguagem
+
+Configurar uma partida do Pokémon TCG exige definir decks, validar regras, gerenciar energia, calcular danos com fraquezas e resistências — tudo manualmente. **PokéLang** é uma DSL (Linguagem de Domínio Específico) criada para automatizar exatamente essa tarefa: com um arquivo de texto simples `.pok`, o usuário declara os dois decks e dispara uma batalha interativa completa no terminal, com todas as regras aplicadas automaticamente pelo interpretador.
+
+A linguagem resolve um problema concreto e bem delimitado: **eliminar o trabalho tedioso de configuração e arbitragem de partidas do Pokémon TCG**, servindo como árbitro digital que garante a consistência semântica do jogo (cartas válidas, tamanho correto de deck, custo de energia, cálculo de dano, condição de vitória).
+
+### O que a linguagem faz
+
+- Declara dois decks de jogadores com cartas nomeadas
+- Valida léxica, sintática e semanticamente o script antes de iniciar
+- Inicializa a arena de batalha automaticamente
+- Executa um **REPL interativo por turnos**: cada jogador escolhe sua ação (atacar, recuar, energizar ou passar) via teclado
+- Aplica modificadores de fraqueza e resistência conforme os dados de cada carta
+- Detecta nocautes, promove substituições obrigatórias e declara o vencedor ao atingir 3 pontos
+
+---
+
+## Arquitetura do Compilador
+
+O projeto segue a **estrutura clássica de um compilador**, com fases bem definidas:
+
+```
+Arquivo .pok  →  [Análise Léxica + Sintática]  →  AST  →  [Interpretador]  →  REPL Interativo
+                        (Lark / EBNF)             (Lark Tree)   (match/case recursivo)
+```
+
+### Fases implementadas
+
+**1. Análise Léxica e Sintática — `analisador.py`**
+
+A gramática é definida formalmente em **EBNF** usando a biblioteca **Lark**. O Lark gera automaticamente o analisador léxico (tokens `PLAYER`, `STRING`, palavras-chave) e o analisador sintático (parser LL), produzindo a Árvore de Sintaxe Abstrata (AST).
+
+```
+definicao_decks: deck_def+ "INICIAR" "BATALHA"
+deck_def:        "DECK" PLAYER "[" string_lista "]"
+string_lista:    STRING ("," STRING)*
+```
+
+**2. Geração de AST**
+
+O Lark constrói uma `Tree` estruturada com nós `definicao_decks`, `deck_def` e `string_lista`. Nenhuma AST manual é necessária — a árvore é gerada automaticamente pela gramática.
+
+**3. Interpretador Orientado à Sintaxe — `interpretador.py`**
+
+A função recursiva `avalie(tree, estado)` percorre a AST usando **Structural Pattern Matching** (`match tree.data`), executando a semântica de cada nó. Este é o padrão clássico de **Tradução Dirigida por Sintaxe**.
+
+**4. Análise Semântica — `game.py`**
+
+Regras de negócio verificadas em tempo de execução:
+- Exatamente 5 cartas por deck (`DeckSizeError`)
+- Sem cartas repetidas no mesmo deck (`DuplicateCardError`)
+- Todas as cartas devem existir no banco de dados (`InvalidCardError`)
+- Exatamente 2 declarações de `DECK` com nomes distintos
+
+**5. Motor de Execução / REPL — `interpretador.py` + `game.py`**
+
+Após a validação da AST, o interpretador inicia o loop interativo de turnos: exibe o painel de batalha, lê a ação do jogador e aplica os efeitos no estado do jogo.
+
+---
+
+## Estrutura de Arquivos
+
+```
 Compilador-de-Cartas-Pokemon/
 ├── data/
-│   └── base_cartas_pokemon.json    # Banco de dados estático das cartas Pokémon Básicas
-├── analisador.py                  # Gramática EBNF e instanciação do Parser Lark
-├── game.py                        # Estrutura de memória de estados e painéis do jogo
-├── interpretador.py               # Caminhada recursiva na AST (match/case) e REPL
-├── main.py                        # Ponto de entrada (Entrypoint) da aplicação
-└── README.md                      # Documentação do repositório
-
+│   └── base_cartas_pokemon.json       # Banco de dados das cartas Pokémon Básicas
+├── analisador.py                      # Gramática EBNF e instanciação do Parser Lark
+├── game.py                            # Estado do jogo, erros semânticos e painel
+├── interpretador.py                   # Caminhada recursiva na AST + REPL interativo
+├── main.py                            # Ponto de entrada da aplicação
+├── batalha.pok                        # Exemplo: batalha válida
+├── batalha_carta_invalida.pok         # Exemplo: erro semântico — carta inexistente
+├── batalha_repetida.pok               # Exemplo: erro semântico — carta repetida no deck
+├── batalha_tamanho_invalido.pok       # Exemplo: erro semântico — deck com tamanho errado
+└── README.md
 ```
 
 ---
 
-## 📋 Escopo do MVP & Regras do Jogo
-
-Para garantir a estabilidade do compilador e a entrega dentro do prazo, o escopo foi delimitado sob as seguintes regras:
-
-* **Apenas Pokémons Básicos:** Mecânicas de evolução (Stage 1 / Stage 2) são desconsideradas.
-* **Tamanho do Deck:** Cada jogador deve compor seu deck com exatamente **5 cartas de Pokémons** no arquivo de inicialização.
-* **Arena 1v1 Dinâmica:** Há um Pokémon ativo por jogador em campo e os demais permanecem no banco de retaguarda. Quando um Pokémon ativo é nocauteado, o jogador é obrigado a promover um substituto, mantendo a posse do seu turno subsequente.
-* **Marcadores de Energia Simplificados:** A ação de energizar adiciona `+1 marcador genérico` ao Pokémon ativo, eliminando a seleção manual de tipos de energia para maior fluidez.
-* **Validação Semântica de Custo:** O interpretador realiza a checagem em tempo de execução e impede ataques caso o total de energias ligadas ao Pokémon ativo seja menor que o requisito exigido pela carta.
-* **Persistência no Recuo:** Os Pokémons preservam intactas todas as suas energias anexadas ao recuarem para o banco.
-* **Condição de Vitória:** O jogo termina quando um jogador atinge **3 pontos de nocaute** OU se o oponente não tiver mais cartas no banco para repor o campo.
-* **Cálculo de Dano Dinâmico:** Modificadores de **Fraqueza** (Dano bruto modificado via JSON) e **Resistência** são aplicados automaticamente comparando os tipos elementares na Arena.
-
----
-
-## 🛠️ Arquitetura do Compilador
-
-Este projeto adota uma arquitetura clássica de **Avaliação Dirigida por Sintaxe** usando caminhada explícita e recursiva pela árvore sintática:
-
-1. **Análise Sintática (Lark):** O arquivo fonte `.pok` é processado por uma gramática EBNF que valida unicamente a estrutura de carregamento dos decks.
-2. **Interpretador Baseado em Padrões:** A função recursiva `avalie` varre os nós estruturados da árvore de sintaxe abstrata utilizando o recurso de **Structural Pattern Matching (`match tree.data`)** nativo do Python.
-3. **Loop de Execução Interativo (REPL):** Após ler o comando `INICIAR BATALHA`, o interpretador inicia a rotina interativa de console via teclado (`input()`), exibindo relatórios polidos e prompts dinâmicos com os dados vitais (`HP` e `Energia`) do jogador ativo da vez.
-
----
-
-## 💻 Exemplo de Código na DSL (`batalha.pok`)
-
-```text
-# --- Inicialização da Mesa com Decks de 5 Cartas ---
-DECK Alice [ "Pikachu", "Charmander", "Chansey", "Growlithe", "Ponyta" ]
-DECK Bob [ "Squirtle", "Diglett", "Mewtwo", "Bulbasaur", "Caterpie" ]
-INICIAR BATALHA
-```
-
-A DSL funciona para inicializar dois decks de jogadores e iniciar uma batalha interativa.
-Cada deck deve conter exatamente 5 cartas e pode ser declarado em qualquer ordem.
-O nome do jogador é livre, contanto que os dois sejam diferentes.
-
-A validação cobre:
-
-* tamanho de deck incorreto
-* cartas repetidas no mesmo deck
-* cartas não existentes no banco de dados
-
-Arquivos de exemplo para validação:
-
-* `batalha_tamanho_invalido.pok`
-* `batalha_repetida.pok`
-* `batalha_carta_invalida.pok`
-
-Use qualquer um desses arquivos no lugar de `batalha.pok` para testar os erros de validação diretamente.
-
----
-
-## 📦 Como Rodar a Aplicação
+## Como Executar
 
 ### Pré-requisitos
 
-* Python 3.10 ou superior
-* Biblioteca `lark-parser`
+- **Python 3.10 ou superior** (necessário para o `match/case`)
+- Biblioteca **Lark**
 
 ```bash
 pip install lark-parser
 ```
 
-### Execução
-
-Passe o arquivo com a especificação da batalha como argumento por linha de comando:
+### Executando uma batalha
 
 ```bash
 python main.py batalha.pok
 ```
+
+O programa irá:
+1. Carregar o banco de dados de cartas (`data/base_cartas_pokemon.json`)
+2. Ler e analisar o script `.pok`
+3. Validar léxico, sintático e semanticamente
+4. Iniciar a batalha interativa no terminal
+
+> Se nenhum arquivo for passado, o programa tenta executar `batalha.pok` por padrão.
+
+### Criando sua própria batalha
+
+Você pode criar um arquivo `.pok` personalizado com os jogadores e cartas que quiser. Basta seguir a sintaxe da linguagem:
+
+```
+DECK NomeJogador1 [ "Carta1", "Carta2", "Carta3", "Carta4", "Carta5" ]
+DECK NomeJogador2 [ "Carta1", "Carta2", "Carta3", "Carta4", "Carta5" ]
+INICIAR BATALHA
+```
+
+Salve o arquivo com a extensão `.pok` e passe-o como argumento:
+
+```bash
+python main.py minha_batalha.pok
+```
+
+> Os nomes das cartas devem existir no banco de dados (`data/base_cartas_pokemon.json`). Consulte esse arquivo para ver todas as cartas disponíveis.
+
+---
+
+## Exemplos de Programas
+
+### Batalha válida — `batalha.pok`
+
+```
+# --- Inicialização da Mesa com Decks de 5 Cartas ---
+DECK Bob   [ "Squirtle", "Diglett", "Mewtwo", "Bulbasaur", "Caterpie" ]
+DECK Alice [ "Pikachu", "Charmander", "Chansey", "Growlithe", "Ponyta" ]
+INICIAR BATALHA
+```
+
+**Saída esperada (início):**
+
+```
+🔍 Carregando script: batalha.pok...
+
+=========================================================================================
+                                       ROUND 0
+=========================================================================================
+Mãos/Bancos carregados com sucesso do arquivo JSON!
+Banco do Bob: Squirtle, Diglett, Mewtwo, Bulbasaur, Caterpie
+Banco do Alice: Pikachu, Charmander, Chansey, Growlithe, Ponyta
+
+Pokémons iniciais enviados para o campo!
+```
+
+A partir daí, a batalha ocorre interativamente. A cada turno, o jogador da vez escolhe:
+
+```
+🤔 Bob [Squirtle | HP:70 | Energias:0], qual ação deseja realizar?
+1 - ATACAR
+2 - RECUAR
+3 - ENERGIZAR (+1 Marcador de Energia)
+4 - PASSAR
+Digite o número da ação:
+```
+
+---
+
+### Exemplo: Deck com tamanho incorreto — `batalha_tamanho_invalido.pok`
+
+```
+# Deck 1 com tamanho incorreto (4 cartas)
+DECK Alice [ "Pikachu", "Charmander", "Chansey", "Growlithe" ]
+DECK Bob   [ "Squirtle", "Diglett", "Mewtwo", "Bulbasaur", "Caterpie" ]
+INICIAR BATALHA
+```
+
+**Saída:**
+
+```
+❌ Erro Semântico: Cada deck deve conter exatamente 5 cartas. Foram encontradas 4 carta(s).
+🚫 Execução abortada pelo Analisador Semântico.
+```
+
+---
+
+### Exemplo: Carta repetida no deck — `batalha_repetida.pok`
+
+```
+# Deck 2 com cartas repetidas
+DECK Alice [ "Pikachu", "Charmander", "Chansey", "Growlithe", "Ponyta" ]
+DECK Bob   [ "Squirtle", "Diglett", "Mewtwo", "Diglett", "Caterpie" ]
+INICIAR BATALHA
+```
+
+**Saída:**
+
+```
+❌ Erro Semântico: O deck contém cartas repetidas: Diglett.
+🚫 Execução abortada pelo Analisador Semântico.
+```
+
+---
+
+### Exemplo: Carta inexistente no banco — `batalha_carta_invalida.pok`
+
+```
+# Carta inválida no deck
+DECK Alice [ "Pikachu", "Charmander", "Chansey", "Growlithe", "Ponyta" ]
+DECK Bob   [ "Squirtle", "Diglett", "Mewtwo", "Bulbasaur", "CartaInvalida" ]
+INICIAR BATALHA
+```
+
+**Saída:**
+
+```
+❌ Erro Semântico: A carta 'CartaInvalida' não existe no banco de dados. Cartas válidas: Bulbasaur, Caterpie, ...
+🚫 Execução abortada pelo Analisador Semântico.
+```
+
+---
+
+## Regras do Jogo (Escopo do MVP)
+
+| Regra | Detalhe |
+|-------|---------|
+| Tamanho do Deck | Exatamente **5 cartas** por jogador |
+| Pokémons aceitos | Apenas **Pokémons Básicos** (sem evolução) |
+| Arena | 1 Pokémon ativo + banco de retaguarda por jogador |
+| Energia | `+1 marcador genérico` por ação de energizar |
+| Custo de ataque | Verificado em tempo de execução |
+| Persistência no recuo | Energias anexadas são preservadas |
+| Condição de vitória | **3 nocautes** ou oponente sem Pokémons disponíveis |
+| Dano | Fraqueza e Resistência aplicadas automaticamente via tipo elemental |
